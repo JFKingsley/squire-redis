@@ -1,6 +1,6 @@
 {
   "name": "squire-redis",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Centralised coordination for Knights of the Button",
   "main": "app.js",
   "scripts": {

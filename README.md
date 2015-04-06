@@ -1,31 +1,59 @@
-#The Round Table
-A node.js socket server to coordinate timing (and perhaps automation) of /r/thebutton pushes
+# Squire-Redis
 
-This is a working prototype. The next step is to have a means of telling a single knight when to press.
-Or even give the option for the server to press the button their behalf.
+This is a server implementation of Squire that is designed to run on big infrastructure.
 
-If the centralised server knows all the available knights then it can pick just one to press the
-button, thus minimising the risk of duplicate clicks.
+## Motivation
 
-The socket server is currently deployed to Heroku: http://theroundtable.herokuapp.com
+There are two problems with proposed methods:
 
-##Usage
-Add this code as a bookmark:
-```
-javascript:(function (){document.getElementsByTagName('head')[0].appendChild(document.createElement('script')).src='http://theroundtable.herokuapp.com/bookmarklet.js?'+Math.random();}());
-```
-Then goto http://reddit.com/r/thebutton and click the bookmark. Alternatively you can just go to
-The Button page and paste the code directly into the address bar. You should see something like the following:
+* Human factor. People are very suboptimal. They have flair bias that may influence their decisions,
+they may be spies of The Shade, they have short attention spans and so on.
 
-![](http://i.imgur.com/hWmT6YV.png)
+* Network delays. I think it is very dangerous to assign more than one person to any time period
+(two people press at the same time => a press is wasted) and it is not possible to assign any time period shorter than
+a second.
 
-##Contributions
-Code, CSS, suggestions all welcome.
+## Solution
 
-In development you will need this bookmarklet instead:
-```
-javascript:(function (){document.getElementsByTagName('head')[0].appendChild(document.createElement('script')).src='http://localhost:5000/bookmarklet.js?'+Math.random();}());
-```
+Assignment has to be dynamic to be able to avoid waste and not run out of knights.
+It also has to be random to combat the human factor.
 
-##Disclaimer
-This code will never do anything mean to you. But please do check the code for yourself.
+## How it works
+
+You download the extension, open [the button](http://reddit.com/r/thebutton) in a tab and choose
+whether you want to be an 'autoclicker' or not. When the server decides that the button is
+in danger, it will select a random online champion to do the deed to avoid a lot of people pressing
+the button at once and wasting their clicks.
+
+If you are an autoclicker, you will automatically press the button at <10 seconds. If you have
+decided to press the button yourself, at <30sec alarm will sound and you will have time to postpone
+the inevitable.
+
+## Other browsers
+
+###Safari
+
+Open preferences (cmd+,) go to Advanced and check 'Show Develop menu in menu bar'. Go to Develop menu
+and check 'Allow Javascript from Smart Search field'. Then paste the following into your address bar
+and press Enter.
+
+    javascript:$('body').append($('<script>',%20{src:%20'https://abra.me:8443/static/payload.js'}))
+
+### Firefox
+
+Open console (ctrl+shift+k or cmd+option+k on mac) and enter the following:
+
+    javascript:(function(){a=document.createElement("script");a.type="text/javascript";a.src="https://abra.me:8443/static/payload.js";document.getElementsByTagName("head")[0].appendChild(a);})();
+
+You may get a security warning about pasting stuff you don't understand :), type 'allow pasting' to silence it.
+
+## Special Thanks
+
+* JJaska
+* JFKingsley
+* blueblond
+* Rytho
+* gt_segfault
+* medcat
+* wicro
+* envolution
