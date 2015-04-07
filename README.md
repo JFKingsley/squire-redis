@@ -1,6 +1,6 @@
 # Squire-Redis
 
-This is a server implementation of Squire that is designed to run on big infrastructure.
+This is a server implementation of Squire that is designed to run on scalable infrastructure and sync with multiple servers.
 
 ## Motivation
 
