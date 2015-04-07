@@ -14,31 +14,43 @@ exports.init = function(f, server, redis) {
 
 exports.handleConnection = function(f, socket, redis) {
     socket.on('initData', function (msg) {
-        console.log(msg);
         //If the user doesn't provide a username, quit
         if (!msg.username) {
             return;
         }
 
-        redis.get('users:' + msg.username, function(err, reply) {
-            if(reply && reply.online) {
-                socket.emit('close');
+        redis.hgetall('users:' + msg.username, function(err, reply) {
+            //Since Redis stores boolean as strings we need to explicitly check/set each bool since 'false' is truthy
+            //
+            if(reply && (reply.online === 'true')) {
+                socket.emit('multipleClients');
                 return;
             }
 
             var client = reply;
 
-            client = {
-              alerted: false,
-              autoclick: false,
-              username: msg.username,
-              last_ping: now(),
-              valid: msg.valid,
-              client_time: msg.client_time,
-              instance_token: msg.instance_token,
-              online: true,
-              autoclick: ('autoclick' in msg ? msg.autoclick : false)
-            };
+            if(reply) {
+                client = {
+                  username: msg.username,
+                  last_ping: now(),
+                  valid: (msg.valid === 'true'),
+                  client_time: msg.client_time,
+                  instance_token: msg.instance_token,
+                  online: true,
+                  autoclick: ('autoclick' in msg ? msg.autoclick : (reply.autoclick === 'true'))
+                };
+            } else {
+                client = {
+                  alerted: false,
+                  username: msg.username,
+                  last_ping: now(),
+                  valid: (msg.valid === 'true'),
+                  client_time: msg.client_time,
+                  instance_token: msg.instance_token,
+                  online: true,
+                  autoclick: ('autoclick' in msg ? msg.autoclick : false)
+                };
+            }
 
             if (client.instance_token != 'not_set' && client.instance_token != instance_token) {
                 console.log('Now reloading' + msg.username);
@@ -46,7 +58,6 @@ exports.handleConnection = function(f, socket, redis) {
                 client.online = false;
                 return;
             }
-
             redis.hmset('users:' + msg.username, client);
             console.log(msg.username + ' just logged in.');
 
@@ -56,34 +67,29 @@ exports.handleConnection = function(f, socket, redis) {
     });
 
     socket.on('ping', function (msg) {
-        console.log("testing");
         //If the user doesn't provide a username, quit
-        if (!socket.username || !(socket in clients)) {
+        if (!socket.username || !(socket.username in clients)) {
             return;
         }
 
-        redis.get('users:' + socket.username, function(err, client) {
+        redis.hgetall('users:' + socket.username, function(err, client) {
             if (!client) {
                 return;
             }
-
-            if (msg.first_ping && client.online) {
-                socket.emit('close');
+            if (msg.instance_token != 'not_set' && msg.instance_token != instance_token) {
+                console.log('Now reloading ' + msg.username + '...');
+                socket.emit('reload');
                 return;
             }
 
-            if (msg.instance_token != 'not_set' && msg.instance_token != instance_token) {
-                console.log('reloading ' + msg.username);
-                socket.emit('reload');
-                client.online = false;
-            }
+            //Update last_ping, client_time and autoClick if set
+            var updatedClient = {};
 
-            //Update last_ping, client_time and autoClick/online if set
-
-            client.last_ping = now();
-            client.client_time = msg.client_time;
-            client.autoclick = ('autoclick' in msg ? msg.autoclick : false);
-            console.log(JSON.stringify(client));
+            updatedClient.last_ping = now();
+            updatedClient.client_time = msg.client_time;
+            updatedClient.autoclick = ('autoclick' in msg ? msg.autoclick : false);
+            updatedClient.instance_token = msg.instance_token;
+            redis.hmset('users:' + socket.username, updatedClient);
         });
     });
 

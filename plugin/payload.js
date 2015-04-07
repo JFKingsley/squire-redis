@@ -10,7 +10,6 @@ jQuery.getScript("https://cdn.socket.io/socket.io-1.2.0.js", function (data, sta
     return new Date().getTime() / 1000;
   }
 
-  var client_authoritative = false;
   var lastCheckboxValue = false;
   var first_ping = true;
 
@@ -40,9 +39,7 @@ jQuery.getScript("https://cdn.socket.io/socket.io-1.2.0.js", function (data, sta
 
     instance_token = msg.instance_token;
 
-    if (!client_authoritative) {
-      $('#autoclick').prop('checked', msg.autoclick);
-    }
+    $('#autoclick').prop('checked', msg.autoclick);
 
     if (msg.alerted == 'manual') {
       if ($('#click_order').length == 0) {
@@ -70,17 +67,11 @@ jQuery.getScript("https://cdn.socket.io/socket.io-1.2.0.js", function (data, sta
 
       first_ping = false;
 
-      if (client_authoritative && now() - last_checkbox_change > 5) {
-        client_authoritative = false;
-      }
-
-      if (client_authoritative && $('#autoclick').is(':checked') != lastCheckboxValue) {
+      if ($('#autoclick').is(':checked') != lastCheckboxValue) {
         msg.autoclick = $('#autoclick').is(':checked');
         lastCheckboxValue = $('#autoclick').is(':checked');
         console.log('sending ' + msg.autoclick);
       }
-
-      console.log("pinging server.");
 
       socket.emit('ping', msg);
     }
@@ -175,11 +166,16 @@ jQuery.getScript("https://cdn.socket.io/socket.io-1.2.0.js", function (data, sta
   });
 
   socket.on('close', function () {
+    socket.disconnect();
+  });
+
+  socket.on('multipleClients', function () {
     alert('Having multiple squires open may cause two presses at the same time and labeling you a cheater.');
     socket.disconnect();
   });
 
   socket.on('reload', function () {
+    socket.disconnect();
     location.reload();
   });
 
