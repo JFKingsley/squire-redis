@@ -187,12 +187,12 @@ jQuery.getScript("https://cdn.socket.io/socket.io-1.2.0.js", function (data, sta
   socket.on('alert', function () {
     var refreshIntervalId = setInterval(function() {
       beep();
-    }, 150);
+    }, 200);
 
     /* later */
     window.setTimeout(function () {
       clearInterval(refreshIntervalId);
-    }, 4000);
+    }, 6000);
     window.open('https://reddit.com/r/thebutton');
   });
 

@@ -29,9 +29,9 @@ exports.init = function(f, server, redis) {
         shuttingDown = true;
         async.waterfall([
             function(callback) {
-                redisClient.get('canRunInterval', function(err, reply) {
+                redisClient.get('isDesignatedMaster', function(err, reply) {
                     if(reply !== null && reply == instance_token) {
-                        redisClient.del('canRunInterval', function(err) {
+                        redisClient.del('isDesignatedMaster', function(err) {
                             callback();
                         });
                     } else {
@@ -74,11 +74,11 @@ exports.init = function(f, server, redis) {
         });
 
         //Check if this server had the mutex lock. If so, set it for 5 mins
-        redis.get('canRunInterval', function(err, reply) {
+        redis.get('isDesignatedMaster', function(err, reply) {
             if(reply !== null && reply !== instance_token) {
                 return;
             }
-            redis.setex('canRunInterval', 300, instance_token);
+            redis.setex('isDesignatedMaster', 300, instance_token);
             userHandler.manage_tiers(redis, clients, timer, mode, state, function(msg) {
                 mode = msg.newMode;
                 state = msg.newState;
@@ -137,8 +137,11 @@ exports.init = function(f, server, redis) {
                     clients[Object.keys(clients)[i]].emit('announcement', {body: message});
                 };
             }
+            if(command === 'setMode' && message === 'reset') {
+                mode = 'setup';
+            }
             if(command === 'setMode' && (message === 'safe' || message === 'cautious' || message === 'testing')) {
-                mode = message;
+                mode = message + 'Set';
             }
         }
     });
@@ -268,9 +271,9 @@ exports.handleAnnouncements = function(f, server, redisClient) {
             shuttingDown = true;
             async.waterfall([
                 function(callback) {
-                    redisClient.get('canRunInterval', function(err, reply) {
+                    redisClient.get('isDesignatedMaster', function(err, reply) {
                         if(reply !== null && reply == instance_token) {
-                            redisClient.del('canRunInterval', function(err) {
+                            redisClient.del('isDesignatedMaster', function(err) {
                                 callback();
                             });
                         } else {
@@ -300,6 +303,10 @@ exports.handleAnnouncements = function(f, server, redisClient) {
         } else {
             if(line === 'mode') {
                 console.log('Current mode is ' + mode);
+                return rl.prompt();
+            }
+            if(line === 'state') {
+                console.log('Current state is ' + state);
                 return rl.prompt();
             }
             redisClient.publish('command_channel', line);
