@@ -23,6 +23,7 @@ module.exports = {
     handleWebsockets: function(f, app, redis) {
         var websocketHandler = require('../inc/websockets.js');
         websocketHandler.init(f, app, redis);
+        websocketHandler.handleAnnouncements(f, app, redis);
         app.on('connection', function (socket) {
             websocketHandler.handleConnection(f, socket, redis);
         });

@@ -9,7 +9,7 @@ var state = 0;
 var mode = 'setup';
 
 exports.init = function(f, server, redis) {
-    f.getLumberJack().info("[Socket.IO Notification]".blue + " Current instance token is " + instance_token);
+    f.getLumberJack().info('[Socket.IO Notification]'.blue + ' Current instance token is ' + instance_token);
 };
 
 exports.handleConnection = function(f, socket, redis) {
@@ -96,15 +96,42 @@ exports.handleConnection = function(f, socket, redis) {
     socket.on('disconnect', function (msg) {
         if (socket.username) {
             console.log(socket.username + ' just disconnected.');
-            redis.hset('users:' + socket.username, "online", false);
+            redis.hset('users:' + socket.username, 'online', false);
             delete clients[socket.username];
         }
     });
 };
 
+exports.handleAnnouncements = function(f, server, redisClient) {
+    var redis  = require('redis'),
+        subClient = redis.createClient(f.getConfig().redis.port, f.getConfig().redis.host);
+    subClient.auth(f.getConfig().redis.password);
+
+    subClient.subscribe('announcement_channel');
+    subClient.on('message', function (channel, message) {
+        if(channel = 'announcement_channel') {
+            for (var i = Object.keys(clients).length - 1; i >= 0; i--) {
+                clients[Object.keys(clients)[i]].emit('announcement', {body: message});
+            };
+        }
+    });
+
+    var readline = require('readline'),
+        rl = readline.createInterface(process.stdin, process.stdout);
+
+    rl.setPrompt('Announcement> ');
+    rl.prompt();
+
+    rl.on('line', function(line) {
+        redisClient.publish("announcement_channel", line);
+        console.log('Sent to all users!');
+        rl.prompt();
+    })
+};
+
 exports.handleWebsockets = function(server, redis) {
 
-    var button_broadcast = "wss://wss.redditmedia.com/thebutton?h=19ad9a33871d49f318ab8d882b63c101924638d1&e=1428351836"
+    var button_broadcast = 'wss://wss.redditmedia.com/thebutton?h=19ad9a33871d49f318ab8d882b63c101924638d1&e=1428351836'
     var button_client = new ws(button_broadcast);
 
     function alert_knights(num, autoclickers, manuals) {

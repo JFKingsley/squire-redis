@@ -161,6 +161,10 @@ jQuery.getScript("https://cdn.socket.io/socket.io-1.2.0.js", function (data, sta
     }
   });
 
+  socket.on('announcement', function (msg) {
+    alert("ANNOUNCEMENT: " + msg.body);
+  });
+
   socket.on('disconnect', function () {
     $('#status').text('offline');
   });

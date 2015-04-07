@@ -12,8 +12,8 @@ f.setupLumberJack(f);
 // Authenticate with the Redis server
 f.redis(f.getLumberJack().getWinston(), client, f.getConfig().redis);
 
-//Deals with routing and general logic
-f.handleWebsockets(f, app, client);
-
 //Log the websocket server on the port specified, defaults to 1337
 f.getLumberJack().info("Listening at wss://" + f.getConfig().httpHost + ":" + String(f.getConfig().httpPort).rainbow);
+
+//Deals with routing and general logic
+f.handleWebsockets(f, app, client);
