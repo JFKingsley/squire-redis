@@ -16,39 +16,45 @@ function alert_knights(redis, num, clients) {
         }
     ], function (err, autoclickers, manuals) {
         for (var i = 0; i < num; i++) {
-          if (autoclickers.length > 0) {
-            var j = Math.floor(Math.random() * autoclickers.length);
-            var username = autoclickers[j];
-            console.log('alerting autoclicker ' + username);
-            redis.hset('users:' + username, 'alerted', 'autoclick');
-            redis.lrem('autoclickers', 0, username);
-            if(username in clients) {
-                clients[username].emit('click', {time: now()});
+            if (autoclickers.length > 0) {
+                var j        = Math.floor(Math.random() * autoclickers.length),
+                    username = autoclickers[j];
+
+                console.log('alerting autoclicker ' + username);
+
+                redis.hset('users:' + username, 'alerted', 'autoclick');
+                redis.lrem('autoclickers', 0, username);
+
+                if(username in clients) {
+                    clients[username].emit('alert_autoclick');
+                } else {
+                    redisClient.publish("alert_user", JSON.stringify({
+                        username: username,
+                        type: 1
+                    }));
+                }
+                autoclickers.splice(j);
+            } else if (manuals.length > 0) {
+                var j        = Math.floor(Math.random() * manuals.length),
+                    username = manuals[j];
+
+                console.log('alerting manual ' + username);
+
+                redis.hset('users:' + username, 'alerted', 'manual');
+                redis.lrem('manuals', 0, username);
+
+                if(username in clients) {
+                    clients[username].emit('alert_manual');
+                } else {
+                    redis.publish("alert_user", JSON.stringify({
+                        username: username,
+                        type: 2
+                    }));
+                }
+                manuals.splice(j);
             } else {
-                redisClient.publish("alert_user", JSON.stringify({
-                    username: username,
-                    type: 1
-                }));
+                console.log('ISSUE! NOBODY TO ALERT!');
             }
-            autoclickers.splice(j);
-          } else if (manuals.length > 0) {
-            var j = Math.floor(Math.random() * manuals.length);
-            var username = manuals[j];
-            console.log('alerting manual ' + username);
-            redis.hset('users:' + username, 'alerted', 'manual');
-            redis.lrem('manuals', 0, username);
-            if(username in clients) {
-                clients[username].emit('alert', {time: now()});
-            } else {
-                redis.publish("alert_user", JSON.stringify({
-                    username: username,
-                    type: 2
-                }));
-            }
-            manuals.splice(j);
-          } else {
-            console.log('ISSUE! NOBODY TO ALERT!');
-          }
         }
     });
 }
@@ -89,10 +95,10 @@ exports.manage_tiers = function(redis, clients, timer, mode, state, callback) {
             if (timer >= 58 && state > 0) {
                 state = 0;
                 clear_alerts(redis)
-            } else if (timer < 55 && state == 0) {
+            } else if (timer < 56 && state == 0) {
                 state = 1;
                 alert_knights(redis, 1, clients);
-            } else if (timer < 46 && state == 1) {
+            } else if (timer < 54 && state == 1) {
                 state = 2;
                 alert_knights(redis, 3, clients);
             }

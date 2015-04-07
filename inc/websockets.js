@@ -6,10 +6,11 @@ var ButtonAPI      = require('thebutton'),
     clients        = {},
     subClient      = null;
 
-var timer = 100;
-var state = 0;
-var mode = 'setup';
-var shuttingDown = false;
+var timer = 100,
+    state = 0,
+    mode = 'setup',
+    last_ticker = 0,
+    shuttingDown = false;
 
 exports.init = function(f, server, redis) {
     f.getLumberJack().info('[Socket.IO Notification]'.blue + ' Current instance token is ' + instance_token);
@@ -21,6 +22,8 @@ exports.init = function(f, server, redis) {
     api.getNewToken(function(tokenData) {
         api.connect(tokenData.token, tokenData.epoch);
         api.on('tick', function(data) {
+            last_ticker = now();
+            //Unknown why, but the seconds are always one off, not a timing issue
             timer = data.time_left - 1;
         });
     });
@@ -79,10 +82,14 @@ exports.init = function(f, server, redis) {
                 return;
             }
             redis.setex('isDesignatedMaster', 300, instance_token);
-            userHandler.manage_tiers(redis, clients, timer, mode, state, function(msg) {
-                mode = msg.newMode;
-                state = msg.newState;
-            });
+            if (now() - last_ticker > 5) {
+                mode = 'inconsistent';
+            } else {
+                userHandler.manage_tiers(redis, clients, timer, mode, state, function(msg) {
+                    mode = msg.newMode;
+                    state = msg.newState;
+                });
+            }
         });
 
         //Notify the clients of any detail changes
@@ -101,7 +108,8 @@ exports.init = function(f, server, redis) {
                           alerted: (client.alerted === 'true'),
                           instance_token: instance_token,
                           autoclick: (client.autoclick === 'true'),
-                          mode: mode
+                          mode: mode,
+                          armed: mode != 'inconsistent'
                         };
                         if(clients[username]) {
                             clients[username].emit('update', client_msg);
@@ -110,7 +118,7 @@ exports.init = function(f, server, redis) {
                 };
             });
         });
-    }, 100);
+    }, 333);
 
     subClient.subscribe('alert_user');
     subClient.subscribe('command_channel');
@@ -121,9 +129,9 @@ exports.init = function(f, server, redis) {
             message = JSON.parse(message);
             if(message.username in clients) {
                 if (message.type === 1) {
-                  clients[message.username].emit('click');
+                  clients[message.username].emit('alert_autoclick');
                 } else if (message.type === 2) {
-                  clients[message.username].emit('alert');
+                  clients[message.username].emit('alert_manual');
 
                 }
             }
@@ -159,6 +167,7 @@ exports.handleConnection = function(f, socket, redis) {
             //
             if(reply && (reply.online === 'true')) {
                 socket.emit('multipleClients');
+                socket.disconnect();
                 return;
             }
 
@@ -170,8 +179,10 @@ exports.handleConnection = function(f, socket, redis) {
                   last_ping: now(),
                   valid: msg.valid,
                   client_time: msg.client_time,
+                  client_timer: msg.client_timer,
                   instance_token: msg.instance_token,
                   online: true,
+                  address: socket.handshake.address,
                   autoclick: ('autoclick' in msg ? msg.autoclick : (reply.autoclick === 'true'))
                 };
             } else {
@@ -181,8 +192,10 @@ exports.handleConnection = function(f, socket, redis) {
                   last_ping: now(),
                   valid: msg.valid,
                   client_time: msg.client_time,
+                  client_timer: msg.client_timer,
                   instance_token: msg.instance_token,
                   online: true,
+                  address: socket.handshake.address,
                   autoclick: ('autoclick' in msg ? msg.autoclick : false)
                 };
             }
@@ -215,6 +228,7 @@ exports.handleConnection = function(f, socket, redis) {
             if (msg.instance_token != 'not_set' && msg.instance_token != instance_token) {
                 console.log('Now reloading ' + msg.username + '...');
                 socket.emit('reload');
+                socket.disconnect();
                 return;
             }
 
@@ -223,6 +237,7 @@ exports.handleConnection = function(f, socket, redis) {
 
             updatedClient.last_ping = now();
             updatedClient.client_time = msg.client_time;
+            updatedClient.client_timer = msg.client_timer;
             updatedClient.autoclick = msg.autoclick;
             updatedClient.instance_token = msg.instance_token;
 
