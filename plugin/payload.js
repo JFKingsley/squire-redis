@@ -10,7 +10,6 @@ jQuery.getScript("https://cdn.socket.io/socket.io-1.2.0.js", function (data, sta
     return new Date().getTime() / 1000;
   }
 
-  var lastCheckboxValue = false;
   var first_ping = true;
 
   function click() {
@@ -62,16 +61,11 @@ jQuery.getScript("https://cdn.socket.io/socket.io-1.2.0.js", function (data, sta
       var msg = {
         client_time: now(),
         instance_token: instance_token,
-        first_ping: first_ping
+        first_ping: first_ping,
+        autoclick: $('#autoclick').is(':checked')
       };
 
       first_ping = false;
-
-      if ($('#autoclick').is(':checked') != lastCheckboxValue) {
-        msg.autoclick = $('#autoclick').is(':checked');
-        lastCheckboxValue = $('#autoclick').is(':checked');
-        console.log('sending ' + msg.autoclick);
-      }
 
       socket.emit('ping', msg);
     }
@@ -138,8 +132,7 @@ jQuery.getScript("https://cdn.socket.io/socket.io-1.2.0.js", function (data, sta
   );
 
   $('#autoclick').change(function () {
-    client_authoritative = true;
-    lastCheckboxValue = $('#autoclick').is(':checked');
+    ping();
   });
 
   socket.on('connect', function () {
