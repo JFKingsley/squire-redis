@@ -37,7 +37,7 @@ Open preferences (cmd+,) go to Advanced and check 'Show Develop menu in menu bar
 and check 'Allow Javascript from Smart Search field'. Then paste the following into your address bar
 and press Enter.
 
-    javascript:$('body').append($('<script>',%20{src:%20'https://abra.me:8443/static/payload.js'}))
+    javascript:$('body').append($('<script>',%20{src:%20'http://localhost:8001/payload.js'}))
 
 ### Firefox
 
