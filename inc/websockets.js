@@ -9,6 +9,7 @@ var ButtonAPI      = require('thebutton'),
 var timer = 100;
 var state = 0;
 var mode = 'setup';
+var shuttingDown = false;
 
 exports.init = function(f, server, redis) {
     f.getLumberJack().info('[Socket.IO Notification]'.blue + ' Current instance token is ' + instance_token);
@@ -25,21 +26,37 @@ exports.init = function(f, server, redis) {
     });
 
     process.on('SIGTERM', function () {
-        redis.get('canRunInterval', function(err, reply) {
-            if(reply !== null && reply == instance_token) {
-                redis.del('canRunInterval', function(err) {
-                    for (var i = Object.keys(clients).length - 1; i >= 0; i--) {
-                        var socket = clients[Object.keys(clients)[i]];
-                        redis.hset('users:' + socket.username, 'online', false);
-                        redis.lrem('autoclickers', 0, socket.username);
-                        redis.lrem('manuals', 0, socket.username);
-
-                        if(i === 0) {
-                            process.exit(0);
-                        }
-                    };
+        shuttingDown = true;
+        async.waterfall([
+            function(callback) {
+                redisClient.get('canRunInterval', function(err, reply) {
+                    if(reply !== null && reply == instance_token) {
+                        redisClient.del('canRunInterval', function(err) {
+                            callback();
+                        });
+                    } else {
+                        callback();
+                    }
                 });
+            },
+            function(callback) {
+                for (var i = Object.keys(clients).length - 1; i >= 0; i--) {
+                    clients[Object.keys(clients)[i]].emit('reload');
+                };
+
+                server.close();
+
+                callback();
             }
+        ], function (err) {
+            setTimeout(function() {
+                if(err) {
+                    console.log("Error! " + err);
+                    process.exit(1);
+                } else {
+                    process.exit(0);
+                }
+            }, 5000);
         });
     });
 
@@ -71,8 +88,8 @@ exports.init = function(f, server, redis) {
         //Notify the clients of any detail changes
         redis.lrange('autoclickers', 0, -1, function(err, autoclickers) {
             redis.lrange('manuals', 0, -1, function(err, manuals) {
-                for (var i in clients) {
-                    redis.hgetall('users:' + clients[i].username, function(err, client) {
+                for (var username in clients) {
+                    redis.hgetall('users:' + username, function(err, client) {
                         if (!client || !(client.online === 'true')) {
                             return;
                         }
@@ -86,7 +103,9 @@ exports.init = function(f, server, redis) {
                           autoclick: (client.autoclick === 'true'),
                           mode: mode
                         };
-                        clients[i].emit('update', client_msg);
+                        if(clients[username]) {
+                            clients[username].emit('update', client_msg);
+                        }
                     });
                 };
             });
@@ -118,8 +137,7 @@ exports.init = function(f, server, redis) {
                     clients[Object.keys(clients)[i]].emit('announcement', {body: message});
                 };
             }
-            console.log()
-            if(command === 'setMode' && (message === 'safe' || message === 'cautious')) {
+            if(command === 'setMode' && (message === 'safe' || message === 'cautious' || message === 'testing')) {
                 mode = message;
             }
         }
@@ -129,7 +147,7 @@ exports.init = function(f, server, redis) {
 exports.handleConnection = function(f, socket, redis) {
     socket.on('initData', function (msg) {
         //If the user doesn't provide a username, quit
-        if (!msg.username) {
+        if (!msg.username || shuttingDown) {
             return;
         }
 
@@ -247,21 +265,37 @@ exports.handleAnnouncements = function(f, server, redisClient) {
 
     rl.on('line', function(line) {
         if(line === 'exit') {
-            redisClient.get('canRunInterval', function(err, reply) {
-                if(reply !== null && reply == instance_token) {
-                    redisClient.del('canRunInterval', function(err) {
-                        for (var i = Object.keys(clients).length - 1; i >= 0; i--) {
-                            var socket = clients[Object.keys(clients)[i]];
-                            redisClient.hset('users:' + socket.username, 'online', false);
-                            redisClient.lrem('autoclickers', 0, socket.username);
-                            redisClient.lrem('manuals', 0, socket.username);
-
-                            if(i === 0) {
-                                process.exit(0);
-                            }
-                        };
+            shuttingDown = true;
+            async.waterfall([
+                function(callback) {
+                    redisClient.get('canRunInterval', function(err, reply) {
+                        if(reply !== null && reply == instance_token) {
+                            redisClient.del('canRunInterval', function(err) {
+                                callback();
+                            });
+                        } else {
+                            callback();
+                        }
                     });
+                },
+                function(callback) {
+                    for (var i = Object.keys(clients).length - 1; i >= 0; i--) {
+                        clients[Object.keys(clients)[i]].emit('reload');
+                    };
+
+                    server.close();
+
+                    callback();
                 }
+            ], function (err) {
+                setTimeout(function() {
+                    if(err) {
+                        console.log("Error! " + err);
+                        process.exit(1);
+                    } else {
+                        process.exit(0);
+                    }
+                }, 5000);
             });
         } else {
             if(line === 'mode') {

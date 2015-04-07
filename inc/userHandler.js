@@ -85,6 +85,19 @@ function clear_alerts(redis) {
 
 exports.manage_tiers = function(redis, clients, timer, mode, state, callback) {
     redis.lrange('autoclickers', 0, -1, function(err, autoclickers) {
+        if(mode === 'testing') {
+            if (timer >= 60 && state > 0) {
+                state = 0;
+                clear_alerts(redis)
+            } else if (timer < 28 && state == 0) {
+                state = 1;
+                alert_knights(redis, 1, clients);
+            } else if (timer < 25 && state == 1) {
+                state = 2;
+                alert_knights(redis, 3, clients);
+            }
+        }
+
         if (autoclickers.length > 3) {
             mode = 'safe';
             if (timer >= 9 && state > 0) {
